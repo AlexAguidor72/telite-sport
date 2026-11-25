@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>T-ELITE SPORT | Nutrición Clínica & Alto Rendimiento</title>
+    <!-- Configuración PWA (App Instalable en Android & iPhone) -->
+    <meta name="theme-color" content="#0B0D10">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="T-ELITE SPORT">
+    <link rel="manifest" href="/manifest.json">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts: Chakra Petch & Inter -->
@@ -16,6 +22,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Supabase Client (Base de datos en la nube) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- OneSignal Web Push SDK (Notificaciones con pantalla apagada) -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 
     <script>
         tailwind.config = {
@@ -133,6 +141,18 @@
                     <i class="fa-solid fa-cloud text-slate-400"></i>
                     <span>Modo Local</span>
                 </span>
+
+                <!-- Botón Activar Alertas Sonoras y Push -->
+                <button id="btn-enable-sound-alerts" onclick="enableDeviceAlerts()" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/40 text-amber-300 text-[11px] font-sport font-bold uppercase tracking-wider transition cursor-pointer" title="Activar sonido y notificaciones en este celular">
+                    <i id="sound-alert-icon" class="fa-solid fa-bell-slash"></i>
+                    <span id="sound-alert-label" class="hidden sm:inline">Activar Sonido</span>
+                </button>
+
+                <!-- Botón Instalar App en Celular (PWA) -->
+                <button id="btn-install-pwa" onclick="handleInstallPwaClick()" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-elite-charcoal hover:bg-elite-slate border border-white/15 text-white text-[11px] font-sport font-bold uppercase tracking-wider transition cursor-pointer" title="Instalar T-ELITE SPORT en tu celular">
+                    <i class="fa-solid fa-mobile-screen-button text-elite-green"></i>
+                    <span class="hidden md:inline">Instalar App</span>
+                </button>
 
                 <!-- Etiqueta exclusiva cuando el paciente entra por enlace privado -->
                 <div id="patient-locked-badge" class="hidden items-center gap-2 px-3 py-1.5 rounded-xl bg-elite-green/15 border border-elite-green/40 text-elite-green text-xs font-sport font-bold uppercase tracking-wider">
@@ -1362,6 +1382,35 @@
         </div>
     </div>
 
+    <!-- MODAL 12: INSTALACIÓN DE APP EN CELULAR (iPHONE / ANDROID) -->
+    <div id="modal-pwa-install" class="hidden fixed inset-0 z-50 bg-elite-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 border-t-4 border-t-elite-green animate-fade-in space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 class="font-sport font-bold uppercase tracking-wide text-base text-elite-black flex items-center gap-2">
+                    <i class="fa-solid fa-mobile-screen-button text-elite-green"></i> Instalar T-ELITE SPORT
+                </h3>
+                <button onclick="closeModal('modal-pwa-install')" class="text-slate-400 hover:text-elite-red p-1 cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3 text-xs text-slate-600 leading-relaxed">
+                <p>Instala esta aplicación en tu pantalla de inicio para abrirla a pantalla completa y recibir <strong>alertas sonoras</strong>:</p>
+                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                    <p class="font-bold text-elite-black"><i class="fa-brands fa-apple mr-1"></i> En iPhone (Safari):</p>
+                    <p>1. Toca el botón <strong>Compartir</strong> (cuadro con flecha hacia arriba abajo en Safari).</p>
+                    <p>2. Baja y toca <strong>"Agregar a inicio"</strong> → <strong>Agregar</strong>.</p>
+                    <p>3. Abre la app desde tu pantalla de inicio y toca <strong>"Activar Sonido"</strong>.</p>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                    <p class="font-bold text-elite-black"><i class="fa-brands fa-android text-elite-green mr-1"></i> En Android (Chrome):</p>
+                    <p>1. Toca los <strong>3 puntitos (⋮)</strong> arriba a la derecha en Chrome.</p>
+                    <p>2. Selecciona <strong>"Instalar aplicación"</strong> o <strong>"Agregar a pantalla principal"</strong>.</p>
+                </div>
+            </div>
+            <div class="flex justify-end pt-2 border-t border-slate-100">
+                <button onclick="closeModal('modal-pwa-install')" class="px-5 py-2 rounded-xl text-xs font-sport font-bold uppercase tracking-wider bg-elite-black text-white hover:bg-elite-green cursor-pointer">Entendido</button>
+            </div>
+        </div>
+    </div>
+
     <!-- NOTIFICACIÓN TOAST FLOTANTE -->
     <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
@@ -1374,6 +1423,10 @@
         // =====================================================================
         const SUPABASE_URL = 'https://kxthqjdzycyzestipfib.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_TEZFGleNJrrbbD_WeEf0mA_GuEz6lM9';
+
+        // CONFIGURACIÓN DE ONESIGNAL (Notificaciones sonoras con pantalla apagada)
+        const ONESIGNAL_APP_ID = '30241af0-f85e-4928-9d5d-7ba132645e26';
+        const ONESIGNAL_SAFARI_WEB_ID = 'web.onesignal.auto.3145fc89-5d6b-4727-99ef-e9ab80472582';
 
         const isSupabaseConfigured =
             SUPABASE_URL.startsWith('https://') &&
@@ -1869,6 +1922,33 @@
         let nutriDonutChart = null;
         let patientProgressChart = null;
         let cloudSyncTimer = null;
+        let deferredPwaPrompt = null;
+        let audioCtx = null;
+        let alertsSoundEnabled = false;
+        let knownNotificationIds = new Set();
+        let realtimePollTimer = null;
+
+        // Capturar evento de instalación nativa PWA en Android / Chrome
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPwaPrompt = e;
+        });
+
+        // Inicializar OneSignal si ya cuenta con App ID configurado
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        if (ONESIGNAL_APP_ID) {
+            window.OneSignalDeferred.push(async function (OneSignal) {
+                try {
+                    await OneSignal.init({
+                        appId: ONESIGNAL_APP_ID,
+                        safari_web_id: ONESIGNAL_SAFARI_WEB_ID,
+                        allowLocalhostAsSecureOrigin: true
+                    });
+                } catch (err) {
+                    console.warn('OneSignal init:', err);
+                }
+            });
+        }
 
         // Inicialización
         window.onload = async function () {
@@ -1889,10 +1969,189 @@
             if (supabaseClient) {
                 await loadStateFromCloud();
                 renderAll();
+                startRealtimeAlertWatcher();
             } else {
                 updateCloudBadge('local');
             }
+            // Registrar IDs ya existentes para solo sonar con alertas nuevas
+            (appState.notifications || []).forEach(n => knownNotificationIds.add(n.id));
+            syncOneSignalExternalUser();
         };
+
+        // =====================================================================
+        // MOTOR PWA, ALERTAS SONORAS EN VIVO Y PUSH EN SEGUNDO PLANO
+        // =====================================================================
+        function handleInstallPwaClick() {
+            if (deferredPwaPrompt) {
+                deferredPwaPrompt.prompt();
+                deferredPwaPrompt.userChoice.then((choice) => {
+                    if (choice.outcome === 'accepted') {
+                        showToast('¡T-ELITE SPORT instalada en tu celular!');
+                    }
+                    deferredPwaPrompt = null;
+                });
+            } else {
+                openModal('modal-pwa-install');
+            }
+        }
+
+        function playAlertChime(type = 'default') {
+            try {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextClass) return;
+                if (!audioCtx) audioCtx = new AudioContextClass();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                const now = audioCtx.currentTime;
+                const notes = type === 'cancelacion'
+                    ? [523.25, 392.00]
+                    : type === 'plan'
+                        ? [587.33, 783.99, 1046.50]
+                        : [659.25, 880.00, 1174.66];
+
+                notes.forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+                    gain.gain.setValueAtTime(0.001, now + idx * 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.28, now + idx * 0.12 + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.28);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now + idx * 0.12);
+                    osc.stop(now + idx * 0.12 + 0.3);
+                });
+
+                if (navigator.vibrate) {
+                    navigator.vibrate([180, 80, 180]);
+                }
+            } catch (err) {
+                console.warn('No se pudo reproducir sonido:', err);
+            }
+        }
+
+        async function enableDeviceAlerts() {
+            alertsSoundEnabled = true;
+            playAlertChime('default');
+
+            const btn = document.getElementById('btn-enable-sound-alerts');
+            const icon = document.getElementById('sound-alert-icon');
+            const label = document.getElementById('sound-alert-label');
+            if (btn && icon && label) {
+                btn.className = 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-elite-green/20 border border-elite-green/40 text-elite-green text-[11px] font-sport font-bold uppercase tracking-wider transition cursor-pointer';
+                icon.className = 'fa-solid fa-volume-high';
+                label.textContent = 'Alertas Activas';
+            }
+
+            if ('Notification' in window && Notification.permission !== 'granted') {
+                try {
+                    await Notification.requestPermission();
+                } catch (e) {}
+            }
+
+            if (ONESIGNAL_APP_ID && window.OneSignalDeferred) {
+                window.OneSignalDeferred.push(async function (OneSignal) {
+                    try {
+                        await OneSignal.Notifications.requestPermission();
+                        syncOneSignalExternalUser();
+                    } catch (err) {
+                        console.warn('OneSignal permission:', err);
+                    }
+                });
+            }
+
+            showToast('¡Alertas sonoras y notificaciones activadas en este dispositivo!');
+        }
+
+        function syncOneSignalExternalUser() {
+            if (!ONESIGNAL_APP_ID || !window.OneSignalDeferred) return;
+            const externalId = appState.currentRole === 'nutritionist'
+                ? 'nutritionist'
+                : appState.authenticatedPatientId;
+            if (!externalId) return;
+
+            window.OneSignalDeferred.push(async function (OneSignal) {
+                try {
+                    await OneSignal.login(externalId);
+                } catch (err) {
+                    console.warn('OneSignal login:', err);
+                }
+            });
+        }
+
+        async function triggerBackgroundPush(targetExternalId, title, message) {
+            if (!targetExternalId) return;
+            try {
+                await fetch('/api/push', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        targetId: targetExternalId,
+                        title,
+                        message
+                    })
+                });
+            } catch (err) {
+                // Silencioso si aún no se configura /api/push en Vercel
+            }
+        }
+
+        function startRealtimeAlertWatcher() {
+            if (realtimePollTimer) clearInterval(realtimePollTimer);
+            realtimePollTimer = setInterval(async () => {
+                if (!supabaseClient) return;
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('telite_store')
+                        .select('payload')
+                        .eq('id', 'main')
+                        .maybeSingle();
+                    if (error || !data || !data.payload) return;
+
+                    const cloudNotifs = Array.isArray(data.payload.notifications) ? data.payload.notifications : [];
+                    const currentAudience = appState.currentRole === 'nutritionist' ? 'nutritionist' : 'patient';
+                    const activePatId = appState.authenticatedPatientId;
+
+                    let hasNewAlert = false;
+                    cloudNotifs.forEach(n => {
+                        if (!knownNotificationIds.has(n.id)) {
+                            knownNotificationIds.add(n.id);
+                            const isForMe = (currentAudience === 'nutritionist' && n.audience === 'nutritionist')
+                                || (currentAudience === 'patient' && n.audience === 'patient' && n.patientId === activePatId);
+
+                            if (isForMe && !n.read) {
+                                hasNewAlert = true;
+                                playAlertChime(n.type === 'cancelacion' ? 'cancelacion' : (n.type === 'dieta' || n.type === 'rutina') ? 'plan' : 'default');
+                                showToast(n.text, n.type === 'cancelacion' ? 'error' : 'info');
+
+                                if ('Notification' in window && Notification.permission === 'granted') {
+                                    try {
+                                        new Notification('T-ELITE SPORT', { body: n.text });
+                                    } catch (e) {}
+                                }
+                            }
+                        }
+                    });
+
+                    if (hasNewAlert) {
+                        if (Array.isArray(data.payload.patients) && data.payload.patients.length > 0) {
+                            appState.patients = data.payload.patients;
+                        }
+                        if (Array.isArray(data.payload.appointments)) {
+                            appState.appointments = data.payload.appointments;
+                        }
+                        appState.notifications = cloudNotifs;
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+                        updatePendingAppointmentsBadge();
+                        updateNutritionistAlertsBadge();
+                        if (appState.currentRole === 'patient' && appState.authenticatedPatientId) {
+                            renderPatientView();
+                        }
+                    }
+                } catch (err) {}
+            }, 6000);
+        }
 
         function updateCloudBadge(status) {
             const el = document.getElementById('cloud-sync-status');
@@ -2181,6 +2440,7 @@
             document.getElementById('login-patient-username').value = '';
             document.getElementById('login-patient-password').value = '';
             saveState();
+            syncOneSignalExternalUser();
             renderPatientPortalGate();
             showToast(`¡Bienvenido(a), ${matched.name}!`);
         }
@@ -2517,7 +2777,15 @@
             const fat = parseInt(document.getElementById('food-fat').value) || 0;
 
             pat.diet[mIdx].items.push({ name, kcal, prot, carb, fat });
+            pushClinicalNotification({
+                audience: 'patient',
+                type: 'dieta',
+                patientId: pat.id,
+                patientName: pat.name,
+                text: `Tu nutriólogo actualizó tu Régimen Alimenticio (${pat.diet[mIdx].meal}: ${name}).`
+            });
             saveState();
+            triggerBackgroundPush(pat.id, 'T-ELITE SPORT • Cambio de Régimen', `Se actualizó tu plan alimenticio en ${pat.diet[mIdx].meal}.`);
             closeModal('modal-add-food');
             document.getElementById('food-name').value = '';
             renderNutritionistDietTab();
@@ -2531,7 +2799,15 @@
                 return;
             }
             pat.diet[mealIdx].items.splice(itemIdx, 1);
+            pushClinicalNotification({
+                audience: 'patient',
+                type: 'dieta',
+                patientId: pat.id,
+                patientName: pat.name,
+                text: `Tu nutriólogo realizó un ajuste en tu Régimen Alimenticio (${pat.diet[mealIdx].meal}).`
+            });
             saveState();
+            triggerBackgroundPush(pat.id, 'T-ELITE SPORT • Ajuste de Régimen', `Se ajustaron los alimentos de tu ${pat.diet[mealIdx].meal}.`);
             renderNutritionistDietTab();
             showToast('Alimento eliminado del régimen.');
         }
@@ -2586,7 +2862,15 @@
             const dayData = pat.workout[appState.selectedWorkoutDay];
             dayData.focus = document.getElementById('nutri-day-focus').value;
             dayData.intensity = document.getElementById('nutri-day-intensity').value;
+            pushClinicalNotification({
+                audience: 'patient',
+                type: 'rutina',
+                patientId: pat.id,
+                patientName: pat.name,
+                text: `Tu nutriólogo actualizó tu Rutina de ${appState.selectedWorkoutDay}: ${dayData.focus} (Intensidad ${dayData.intensity}).`
+            });
             saveState();
+            triggerBackgroundPush(pat.id, 'T-ELITE SPORT • Cambio de Rutina', `Actualización en tu sesión del ${appState.selectedWorkoutDay}: ${dayData.focus}.`);
             showToast(`Sesión de ${appState.selectedWorkoutDay} actualizada.`);
         }
 
@@ -2599,15 +2883,24 @@
             e.preventDefault();
             const pat = getActivePatient();
             const dayData = pat.workout[appState.selectedWorkoutDay];
+            const exName = document.getElementById('ex-name').value.trim();
             dayData.exercises.push({
-                name: document.getElementById('ex-name').value.trim(),
+                name: exName,
                 sets: document.getElementById('ex-sets').value.trim(),
                 reps: document.getElementById('ex-reps').value.trim(),
                 rest: document.getElementById('ex-rest').value.trim(),
                 tip: document.getElementById('ex-tip').value.trim(),
                 done: false
             });
+            pushClinicalNotification({
+                audience: 'patient',
+                type: 'rutina',
+                patientId: pat.id,
+                patientName: pat.name,
+                text: `Nuevo ejercicio agregado a tu Rutina de ${appState.selectedWorkoutDay}: ${exName}.`
+            });
             saveState();
+            triggerBackgroundPush(pat.id, 'T-ELITE SPORT • Nueva Rutina', `Se agregó "${exName}" a tu rutina del ${appState.selectedWorkoutDay}.`);
             closeModal('modal-add-exercise');
             document.getElementById('ex-name').value = '';
             document.getElementById('ex-tip').value = '';
@@ -2623,7 +2916,15 @@
                 return;
             }
             dayData.exercises.splice(idx, 1);
+            pushClinicalNotification({
+                audience: 'patient',
+                type: 'rutina',
+                patientId: pat.id,
+                patientName: pat.name,
+                text: `Tu nutriólogo realizó un ajuste en tu Rutina de ${appState.selectedWorkoutDay}.`
+            });
             saveState();
+            triggerBackgroundPush(pat.id, 'T-ELITE SPORT • Ajuste de Rutina', `Se actualizó tu rutina del ${appState.selectedWorkoutDay}.`);
             renderNutritionistWorkoutTab();
             showToast('Ejercicio eliminado.');
         }
@@ -3147,6 +3448,7 @@
                 text: `${pat.name} solicitó una consulta (${modality}) para el ${date} a las ${time} hrs. Motivo: ${reason}.`
             });
             saveState();
+            triggerBackgroundPush('nutritionist', 'Nueva Solicitud de Cita', `${pat.name} solicitó consulta el ${date} a las ${time} hrs.`);
             updatePendingAppointmentsBadge();
             updateNutritionistAlertsBadge();
             document.getElementById('book-appt-notes').value = '';
@@ -3261,6 +3563,9 @@
             }
 
             saveState();
+            if (pat && newStatus === 'Confirmada') {
+                triggerBackgroundPush(pat.id, 'Cita Confirmada • T-ELITE SPORT', `Tu cita del ${appt.date} a las ${appt.time} hrs fue confirmada.`);
+            }
             updatePendingAppointmentsBadge();
             updateNutritionistAlertsBadge();
             renderClinicAgendaList();
@@ -3313,6 +3618,13 @@
             }
 
             saveState();
+            if (pat) {
+                if (fromPatientModal) {
+                    triggerBackgroundPush('nutritionist', 'Cita Cancelada', `${pat.name} canceló su cita del ${appt.date} a las ${appt.time} hrs.`);
+                } else {
+                    triggerBackgroundPush(pat.id, 'Cita Cancelada • T-ELITE SPORT', `Tu cita del ${appt.date} a las ${appt.time} hrs fue cancelada.`);
+                }
+            }
             updatePendingAppointmentsBadge();
             updateNutritionistAlertsBadge();
             if (fromPatientModal) {
@@ -3417,11 +3729,20 @@
                 return;
             }
             const isCancel = latest.type === 'cancelacion';
+            const isDiet = latest.type === 'dieta';
+            const isWorkout = latest.type === 'rutina';
+            const iconClass = isCancel
+                ? 'fa-calendar-xmark'
+                : isDiet
+                    ? 'fa-utensils'
+                    : isWorkout
+                        ? 'fa-dumbbell'
+                        : 'fa-circle-check';
             banner.classList.remove('hidden');
             banner.innerHTML = `
                 <div class="p-4 rounded-2xl border ${isCancel ? 'bg-elite-red/10 border-elite-red/30 text-elite-red' : 'bg-elite-green/10 border-elite-green/30 text-elite-green'} flex items-center justify-between gap-3 animate-fade-in">
                     <div class="flex items-center gap-3 text-xs sm:text-sm font-semibold">
-                        <i class="fa-solid ${isCancel ? 'fa-calendar-xmark' : 'fa-circle-check'} text-lg"></i>
+                        <i class="fa-solid ${iconClass} text-lg"></i>
                         <span>${latest.text}</span>
                     </div>
                     <button onclick="dismissPatientNotification('${latest.id}')" class="text-xs font-bold uppercase underline shrink-0 cursor-pointer">Entendido</button>
